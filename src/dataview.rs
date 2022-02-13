@@ -10,11 +10,11 @@ pub struct DataView {
 }
 
 // TODO this is a bad way of reading files, is there a better rust crate for this
-// Ideally the same as npm lib @chunkd/fs read chunks from remote files with a async api
+// Ideally the same as npm lib @chunkd/fs which reads chunks from remote files with a async api
 impl DataView {
     pub fn open(file_name: &str) -> Result<Self, std::io::Error> {
         let file = File::open(file_name)?;
-        let file_size = file.metadata().unwrap().len();
+        let file_size = file.metadata()?.len();
         return Ok(DataView {
             file,
             size: file_size,
