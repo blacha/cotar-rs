@@ -1,3 +1,3 @@
-mod fnv1a;
-mod dataview;
 mod cotar;
+mod dataview;
+mod fnv1a;
