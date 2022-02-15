@@ -8,6 +8,9 @@ use crate::fnv1a;
 const COTAR_V1_HEADER_SIZE: u64 = 8;
 const COTAR_V1_INDEX_ENTRY_SIZE: u64 = 24; // TODO shrink the index entry size as its mostly wasted space
 
+/// "COT\x01" as a u32
+pub const COTAR_V1_HEADER_MAGIC: u32 = 22302531;
+
 #[derive(Debug)] // TODO None of these need to be 64bits
 pub struct CotarIndexEntry {
     pub hash: u64,
@@ -23,13 +26,15 @@ pub struct Cotar {
     pub view: dataview::DataView,
 }
 
+
+
 impl Cotar {
     pub fn from_tar(file_name: &str) -> IoResult<Self> {
         let mut view = dataview::DataView::open(file_name)?;
 
         let magic = view.u32_le(view.size - 8)?;
         // "COT\x01" as a u32
-        if magic != 22302531 {
+        if magic != COTAR_V1_HEADER_MAGIC {
             return Err(Error::new(ErrorKind::Other, "Invalid magic"));
         }
 
