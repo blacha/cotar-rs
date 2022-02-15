@@ -26,8 +26,6 @@ pub struct Cotar {
     pub view: dataview::DataView,
 }
 
-
-
 impl Cotar {
     pub fn from_tar(file_name: &str) -> IoResult<Self> {
         let mut view = dataview::DataView::open(file_name)?;

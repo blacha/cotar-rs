@@ -92,7 +92,8 @@ fn file_index_create(file_name: &String) {
     let mut header_buf = [0 as u8; 8];
     let mut buf = header_buf.as_mut();
     // "COT\x01" as u32
-    buf.write(&u32::to_le_bytes(cotar::COTAR_V1_HEADER_MAGIC)).unwrap();
+    buf.write(&u32::to_le_bytes(cotar::COTAR_V1_HEADER_MAGIC))
+        .unwrap();
     buf.write(&u32::to_le_bytes(slot_count as u32)).unwrap();
     output_file.write(&mut header_buf).unwrap();
 
