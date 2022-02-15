@@ -70,7 +70,6 @@ fn file_index_create(file_name: &String) {
                 file.header().path().unwrap(),
                 header_offset
             );
-    
         }
 
         count = count + 1;
