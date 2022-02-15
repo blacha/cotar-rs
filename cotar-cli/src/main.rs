@@ -58,7 +58,7 @@ fn file_index_create(file_name: &String) {
 
         if let Some(file_name) = file.header().path().unwrap().to_str() {
             let entry = CotarIndexEntry {
-                hash: Cotar::hash(file_name), // TODO how to get this to a str
+                hash: Cotar::hash(file_name),
                 offset: header_offset,
                 size: header.size().unwrap(),
             };
@@ -79,18 +79,24 @@ fn file_index_create(file_name: &String) {
     }
 
     let slot_count = ((index.len() as f64) * 1.25).ceil() as u64;
+    if slot_count >= (u32::MAX as u64) {
+        println!("❌ too many entries : {}", slot_count);
+        process::exit(1);
+    }
+
     let mut all_values: Vec<&CotarIndexEntry> = index.values().collect();
 
+    // TODO handle file exists
     let mut output_file = File::create("output.tar.index").expect("Failed to create output file");
 
     let mut header_buf = [0 as u8; 8];
     let mut buf = header_buf.as_mut();
-    buf.write("COT".as_bytes()).unwrap();
-    buf.write(&[0x01]).unwrap();
+    // "COT\x01" as u32
+    buf.write(&u32::to_le_bytes(22302531)).unwrap();
     buf.write(&u32::to_le_bytes(slot_count as u32)).unwrap();
     output_file.write(&mut header_buf).unwrap();
 
-    println!("Sort:Before {}", all_values[0].hash % slot_count);
+    // Sort the entries into the order they should be written to the file
     all_values.sort_by(|&a, &b| {
         let hash_order = (a.hash % slot_count).cmp(&(b.hash % slot_count));
         match hash_order {
@@ -98,7 +104,6 @@ fn file_index_create(file_name: &String) {
             _ => hash_order,
         }
     });
-    println!("Sort:After {}", all_values[0].hash % slot_count);
 
     let mut current_slot = 0 as u64;
     let mut search_count = 0 as u64;
