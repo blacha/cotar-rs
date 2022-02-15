@@ -1,8 +1,10 @@
 use clap::{AppSettings, Parser, Subcommand};
 use cotar::{Cotar, CotarIndexEntry};
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::Write;
+use std::process;
 use tar::Archive;
 
 #[derive(Parser)]
@@ -28,6 +30,7 @@ fn file_info(file_name: &String) {
     match ct_open {
         Err(e) => {
             println!("{} Failed ❌\n {:?}", file_name, e);
+            process::exit(1);
         }
         Ok(ct) => {
             println!("{} Opened ✔️\n\tFiles: {}", file_name, ct.entries,);
@@ -38,42 +41,111 @@ fn file_info(file_name: &String) {
 fn file_index_create(file_name: &String) {
     if !file_name.ends_with(".tar") {
         println!("❌ {} does not end with .tar", file_name);
-        return;
+        process::exit(1);
     }
 
     let file = File::open(file_name).unwrap();
     let mut a = Archive::new(file);
 
-    let index: HashMap<u64, CotarIndexEntry> = HashMap::new();
+    let mut index: HashMap<u64, CotarIndexEntry> = HashMap::new();
     let mut count = 0 as usize;
     for file in a.entries().unwrap() {
-        let mut file = file.unwrap();
+        count = count + 1;
+        let file = file.unwrap();
 
         let header = file.header();
-        // TODO how to convert this to a &str
-        let file_name = file.header().path_bytes();
-        let header_offset = file.raw_header_position();
+        let header_offset = file.raw_header_position() + 512;
 
-        let entry = CotarIndexEntry {
-            hash: 0, // Cotar::hash(file_name), // TODO how to get this to a str
-            offset: header_offset + 512,
-            size: header.size().unwrap(),
-        };
+        if let Some(file_name) = file.header().path().unwrap().to_str() {
+            let entry = CotarIndexEntry {
+                hash: Cotar::hash(file_name), // TODO how to get this to a str
+                offset: header_offset,
+                size: header.size().unwrap(),
+            };
 
-        // println!("{} {} {} {}", file_name, entry.offset, entry.hash, entry.size);
+            if count % 100_000 == 0 {
+                let current = count / 100_000;
+                println!(
+                    "{}00,000 - {} - {:?} - {:?} - {:?}",
+                    current, file_name, entry.offset, entry.size, entry.hash,
+                );
+            }
+            if index.contains_key(&entry.hash) {
+                println!("❌ Hash Collision : {}", entry.hash);
+                process::exit(1);
+            }
+            index.insert(entry.hash, entry);
+        }
+    }
 
-        // let hash:String = file.header().path().unwrap().as_os_str();
-        if count % 10_000 == 0 {
-            println!(
-                "{} - {:?} - {:?}",
-                count,
-                file.header().path().unwrap(),
-                header_offset
-            );
+    let slot_count = ((index.len() as f64) * 1.25).ceil() as u64;
+    let mut all_values: Vec<&CotarIndexEntry> = index.values().collect();
+
+    let mut output_file = File::create("output.tar.index").expect("Failed to create output file");
+
+    let mut header_buf = [0 as u8; 8];
+    let mut buf = header_buf.as_mut();
+    buf.write("COT".as_bytes()).unwrap();
+    buf.write(&[0x01]).unwrap();
+    buf.write(&u32::to_le_bytes(slot_count as u32)).unwrap();
+    output_file.write(&mut header_buf).unwrap();
+
+    println!("Sort:Before {}", all_values[0].hash % slot_count);
+    all_values.sort_by(|&a, &b| {
+        let hash_order = (a.hash % slot_count).cmp(&(b.hash % slot_count));
+        match hash_order {
+            Ordering::Equal => a.offset.cmp(&b.offset),
+            _ => hash_order,
+        }
+    });
+    println!("Sort:After {}", all_values[0].hash % slot_count);
+
+    let mut current_slot = 0 as u64;
+    let mut search_count = 0 as u64;
+    let mut max_search_count = 0 as u64;
+    for entry in all_values {
+        let mut empty_entry_buf: [u8; 24] = [0; 24];
+
+        let expected_slot = entry.hash % slot_count;
+        search_count = search_count + 1;
+        if search_count > max_search_count {
+            max_search_count = search_count;
+        }
+        if expected_slot == current_slot {
+            search_count = 0;
+        }
+        while expected_slot > current_slot {
+            search_count = 0;
+            output_file.write(&mut empty_entry_buf).unwrap();
+            current_slot = current_slot + 1;
         }
 
-        count = count + 1;
+        let mut as_mut = empty_entry_buf.as_mut();
+        as_mut.write(&u64::to_le_bytes(entry.hash)).unwrap();
+        as_mut.write(&u64::to_le_bytes(entry.offset)).unwrap();
+        as_mut.write(&u64::to_le_bytes(entry.size)).unwrap();
+
+        output_file.write(&mut empty_entry_buf).unwrap();
+        current_slot = current_slot + 1;
+
+        if current_slot % 100_000 == 0 {
+            println!("Slot: {} {} ", current_slot, expected_slot);
+        }
+        if current_slot > slot_count {
+            println!("❌ Too Many slots {} {}", current_slot, expected_slot);
+            process::exit(1);
+            // FIXME handle :this:
+        }
     }
+
+    output_file.write(&mut header_buf).unwrap();
+    output_file.flush().unwrap();
+
+    println!(
+        "Index created\n Files: {}\n Max Search: {}",
+        index.len(),
+        max_search_count
+    );
 }
 
 fn main() {
