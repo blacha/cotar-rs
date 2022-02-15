@@ -10,11 +10,13 @@ Rust based [cotar](https://github.com/linz/cotar) reader
 use cotar;
 
 let mut ct = cotar::Cotar::from_tar("example.tar.co").expect("Failed to ::from_tar()");
-let tile_name = "tiles/8/247/108.pbf.gz";
+let file_name = "tiles/8/247/108.pbf.gz";
 
-let info = ct.info(tile_name).expect("Failed to .info()");
-println!("ct.info('{}') {:?}", tile_name, info);
+let file_info = ct.info(file_name).expect("Failed to .info()");
+println!("ct.info('{}') {:?}", file_name, file_info);
+// CotarIndexEntry { hash: 121498119488259422, offset: 7080448, size: 68 }
 
-let tile = ct.get(tile_name).expect("Failed to .get()");
-println!("ct.get('{}') {:?}", tile_name, tile);
+let file_data = ct.get(file_name).expect("Failed to .get()");
+println!("ct.get('{}') {:?}", file_name, file_data);
+// [26, 66, 120 ... ]
 ```

@@ -1,5 +1,5 @@
-const FNV1A_PRIME_64: u64 = 1_099_511_628_211;
-const FNV1A_OFFSET_64: u64 = 14_695_981_039_346_656_037;
+const FNV1A_PRIME_64: u64 = 0x00000100000001b3;
+const FNV1A_OFFSET_64: u64 = 0xcbf29ce484222325;
 
 pub fn fnv1a_64(buf: &[u8]) -> u64 {
     let mut hash = FNV1A_OFFSET_64;
