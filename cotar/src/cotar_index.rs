@@ -17,6 +17,12 @@ pub struct CotarIndexResult {
     pub max_search: usize,
 }
 
+impl Default for CotarIndex {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CotarIndex {
     pub fn new() -> Self {
         CotarIndex {
@@ -39,12 +45,7 @@ impl CotarIndex {
 
             if let Some(file_name) = file.header().path()?.to_str() {
                 let file_size = header.size()? as u32;
-                if !cotar_index.add(file_name, file_offset, file_size) {
-                    return Err(Error::new(
-                        ErrorKind::Other,
-                        format!("Failed to insert {}", file_name),
-                    ));
-                }
+                cotar_index.add(file_name, file_offset, file_size)?;
 
                 // If a report is requested dump how far through the file we are.
                 if report_at > 0 && cotar_index.entries.len() % report_at == 0 {
@@ -55,10 +56,10 @@ impl CotarIndex {
         Ok(cotar_index)
     }
 
-    pub fn add(&mut self, path: &str, file_offset: u64, size: u32) -> bool {
+    pub fn add(&mut self, path: &str, file_offset: u64, size: u32) -> IoResult<()> {
         let hash = crate::Cotar::hash(path);
         if self.entries.contains_key(&hash) {
-            return false;
+            return Err(Error::new(ErrorKind::Other, format!("Duplicate hash key : {}", path)));
         }
 
         let entry = crate::CotarIndexEntry {
@@ -67,7 +68,7 @@ impl CotarIndex {
             file_size: size,
         };
         self.entries.insert(entry.hash, entry);
-        return true;
+        Ok(())
     }
 
     /// Pack the COTAR index into a buffer with the specified amount of excess slots
@@ -105,19 +106,19 @@ impl CotarIndex {
                 return hash_order;
             }
 
-            return a.hash.cmp(&b.hash);
+            a.hash.cmp(&b.hash)
         });
 
         let output: Vec<u8> = Vec::with_capacity(buffer_size as usize);
         let mut cursor = std::io::Cursor::new(output);
         // Write the header
-        cursor.write(&u32::to_le_bytes(crate::COTAR_V2_HEADER_MAGIC))?;
-        cursor.write(&u32::to_le_bytes(slot_count as u32))?;
+        cursor.write_all(&u32::to_le_bytes(crate::COTAR_V2_HEADER_MAGIC))?;
+        cursor.write_all(&u32::to_le_bytes(slot_count as u32))?;
 
         // Write the footer
         cursor.set_position(buffer_size - crate::COTAR_V2_HEADER_SIZE);
-        cursor.write(&u32::to_le_bytes(crate::COTAR_V2_HEADER_MAGIC))?;
-        cursor.write(&u32::to_le_bytes(slot_count as u32))?;
+        cursor.write_all(&u32::to_le_bytes(crate::COTAR_V2_HEADER_MAGIC))?;
+        cursor.write_all(&u32::to_le_bytes(slot_count as u32))?;
 
         let mut max_search_count: usize = 0;
         for entry in all_values {
@@ -134,7 +135,7 @@ impl CotarIndex {
 
                 let mut hash_buf = [0; 8];
                 cursor.set_position(offset);
-                cursor.read(&mut hash_buf)?;
+                cursor.read_exact(&mut hash_buf)?;
 
                 //  empty slot found
                 if u64::from_le_bytes(hash_buf) == 0 {
@@ -143,8 +144,8 @@ impl CotarIndex {
                     break;
                 }
 
-                search_count = search_count + 1;
-                index = index + 1;
+                search_count += 1;
+                index += 1;
                 // If the index loops all the way around to the start something horrible has happened
                 if index == start_index {
                     return Err(std::io::Error::new(ErrorKind::Other, "Hash index looped"));
@@ -157,14 +158,14 @@ impl CotarIndex {
 
             // Tar files are aligned to 512 byte blocks store the block offset not the file offset
             let file_block_offset = (entry.file_offset / 512) as u32;
-            cursor.write(&u64::to_le_bytes(entry.hash))?;
-            cursor.write(&u32::to_le_bytes(file_block_offset))?;
-            cursor.write(&u32::to_le_bytes(entry.file_size))?;
+            cursor.write_all(&u64::to_le_bytes(entry.hash))?;
+            cursor.write_all(&u32::to_le_bytes(file_block_offset))?;
+            cursor.write_all(&u32::to_le_bytes(entry.file_size))?;
         }
 
-        return Ok(CotarIndexResult {
+        Ok(CotarIndexResult {
             vec: cursor.into_inner(),
             max_search: max_search_count,
-        });
+        })
     }
 }

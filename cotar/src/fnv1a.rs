@@ -4,7 +4,7 @@ const FNV1A_OFFSET_64: u64 = 0xcbf29ce484222325;
 pub fn fnv1a_64(buf: &[u8]) -> u64 {
     let mut hash = FNV1A_OFFSET_64;
     for ch in buf {
-        hash = hash ^ *ch as u64;
+        hash ^=  *ch as u64;
         hash = hash.wrapping_mul(FNV1A_PRIME_64);
     }
     hash

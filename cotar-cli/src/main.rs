@@ -34,10 +34,10 @@ enum Commands {
     },
 }
 
-fn file_info(file_name: &String) {
+fn file_info(file_name: &str) {
     println!("Reading cotar {}", file_name);
 
-    let ct_open = Cotar::from_tar(file_name.as_str());
+    let ct_open = Cotar::from_tar(file_name);
 
     match ct_open {
         Err(e) => {
@@ -56,9 +56,9 @@ fn file_info(file_name: &String) {
                 let hash = ct.view.u64_le(i * 16 + 8).unwrap();
                 if hash != 0 {
                     // Where should this hash actually be located
-                    valid_entries = valid_entries + 1;
+                    valid_entries += 1;
                     let search_count = i - (hash % ct.entries);
-                    total_search = total_search + search_count;
+                    total_search += search_count;
                     if search_count > max_search {
                         max_search = search_count;
                     }
@@ -78,7 +78,7 @@ fn file_info(file_name: &String) {
 
 const MAX_SEARCH: usize = 100;
 
-fn file_index_create(file_name: &String, max_search: usize) {
+fn file_index_create(file_name: &str, max_search: usize) {
     if !file_name.ends_with(".tar") {
         println!("❌ {} does not end with .tar", file_name);
         process::exit(1);
@@ -94,10 +94,10 @@ fn file_index_create(file_name: &String, max_search: usize) {
     println!("Packing index..");
     let mut packing_factor = 1.0;
     loop {
-        packing_factor = packing_factor + 0.01;
+        packing_factor += 0.01;
         let packing_time = Instant::now();
 
-        let mut output = cotar_index.pack(packing_factor).unwrap();
+        let output = cotar_index.pack(packing_factor).unwrap();
         println!(
             "Index packed! current_factor:{:.2}% search:{} duration:{}ms ",
             packing_factor * 100.0,
@@ -108,7 +108,7 @@ fn file_index_create(file_name: &String, max_search: usize) {
         if output.max_search > max_search {
             continue;
         }
-        output_file.write(&mut output.vec).unwrap();
+        output_file.write_all(&output.vec).unwrap();
         output_file.flush().unwrap();
         break;
     }

@@ -63,7 +63,7 @@ impl Cotar {
         let info = self.info(path)?;
 
         match info {
-            None => return Ok(None),
+            None => Ok(None),
             Some(entry) => {
                 let bytes = self.view.bytes(entry.file_offset, entry.file_size as u64)?;
                 Ok(Some(bytes))
@@ -98,7 +98,7 @@ impl Cotar {
                 }));
             }
 
-            index = index + 1;
+            index +=  1;
             // Loop around to the start of the hash table
             if index >= entries {
                 index = 0;

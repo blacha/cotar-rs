@@ -16,16 +16,16 @@ impl DataView {
     pub fn open(file_name: &str) -> IoResult<Self> {
         let file = File::open(file_name)?;
         let file_size = file.metadata()?.len();
-        return Ok(DataView {
+        Ok(DataView {
             file,
             size: file_size,
-        });
+        })
     }
 
     fn read_at(&mut self, offset: u64, bytes: usize) -> IoResult<Vec<u8>> {
         let mut buf = vec![0; bytes];
         self.file.seek(SeekFrom::Start(offset))?;
-        self.file.read(&mut buf)?;
+        self.file.read_exact(&mut buf)?;
         Ok(buf)
     }
 
