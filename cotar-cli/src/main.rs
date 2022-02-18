@@ -88,7 +88,6 @@ fn file_index_create(file_name: &String, max_search: usize) {
     let mut cotar_index = CotarIndex::from_tar(file_name, 100_000).unwrap();
     println!("Tar read done.. files: {}", cotar_index.entries.len());
 
-
     // TODO handle file exists
     let mut output_file = File::create("output.tar.index").expect("Failed to create output file");
 
