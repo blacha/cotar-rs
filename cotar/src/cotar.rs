@@ -5,17 +5,17 @@ use crate::dataview;
 use crate::fnv1a;
 
 /// V1 cotar files have a fixed header and entry size
-const COTAR_V1_HEADER_SIZE: u64 = 8;
-const COTAR_V1_INDEX_ENTRY_SIZE: u64 = 24; // TODO shrink the index entry size as its mostly wasted space
+pub const COTAR_V2_HEADER_SIZE: u64 = 8;
+pub const COTAR_V2_INDEX_ENTRY_SIZE: u64 = 16;
 
-/// "COT\x01" as a u32
-pub const COTAR_V1_HEADER_MAGIC: u32 = 22302531;
+/// "COT\x02" as a u32
+pub const COTAR_V2_HEADER_MAGIC: u32 = 39079747;
 
 #[derive(Debug)] // TODO None of these need to be 64bits
 pub struct CotarIndexEntry {
     pub hash: u64,
     pub offset: u64,
-    pub size: u64,
+    pub size: u32,
 }
 
 #[derive(Debug)]
@@ -31,15 +31,15 @@ impl Cotar {
         let mut view = dataview::DataView::open(file_name)?;
 
         let magic = view.u32_le(view.size - 8)?;
-        // "COT\x01" as a u32
-        if magic != COTAR_V1_HEADER_MAGIC {
+        // "COT\x02" as a u32
+        if magic != COTAR_V2_HEADER_MAGIC {
             return Err(Error::new(ErrorKind::Other, "Invalid magic"));
         }
 
         let version = view.byte(view.size - 5)?;
         let entries = view.u32_le(view.size - 4)? as u64;
 
-        let index_offset = view.size - 16 - entries * COTAR_V1_INDEX_ENTRY_SIZE;
+        let index_offset = view.size - 16 - entries * COTAR_V2_INDEX_ENTRY_SIZE;
 
         Ok(Cotar {
             version,
@@ -65,7 +65,7 @@ impl Cotar {
         match info {
             None => return Ok(None),
             Some(entry) => {
-                let bytes = self.view.bytes(entry.offset, entry.size)?;
+                let bytes = self.view.bytes(entry.offset, entry.size as u64)?;
                 Ok(Some(bytes))
             }
         }
@@ -76,12 +76,13 @@ impl Cotar {
     pub fn info(&mut self, path: &str) -> IoResult<Option<CotarIndexEntry>> {
         let hash = Cotar::hash(path);
 
-        let start_index = hash % self.entries;
+        let entries = self.entries as u64;
+        let start_index = hash % entries;
         let mut index = start_index;
 
         loop {
             let offset =
-                self.index_offset + index * COTAR_V1_INDEX_ENTRY_SIZE + COTAR_V1_HEADER_SIZE;
+                self.index_offset + index * COTAR_V2_INDEX_ENTRY_SIZE + COTAR_V2_HEADER_SIZE;
 
             let start_hash = self.view.u64_le(offset)?;
             // Null entry file is missing
@@ -92,14 +93,14 @@ impl Cotar {
             if start_hash == hash {
                 return Ok(Some(CotarIndexEntry {
                     hash,
-                    offset: self.view.u64_le(offset + 8)?,
-                    size: self.view.u64_le(offset + 16)?,
+                    offset: (self.view.u32_le(offset + 8)? as u64) * 512,
+                    size: self.view.u32_le(offset + 16)?,
                 }));
             }
 
             index = index + 1;
             // Loop around to the start of the hash table
-            if index >= self.entries {
+            if index >= entries {
                 index = 0;
             }
             // Looped full around nothing to find here
