@@ -79,11 +79,6 @@ impl CotarIndex {
             ));
         }
 
-        let mut header_buf = [0 as u8; 8];
-        let mut buf = header_buf.as_mut();
-        buf.write(&u32::to_le_bytes(crate::COTAR_V2_HEADER_MAGIC))?;
-        buf.write(&u32::to_le_bytes(slot_count as u32))?;
-
         let buffer_size =
             crate::COTAR_V2_HEADER_SIZE * 2 + crate::COTAR_V2_INDEX_ENTRY_SIZE * slot_count;
 
