@@ -24,7 +24,8 @@ impl CotarIndex {
         }
     }
 
-    pub fn from_tar(file_name: &str) -> IoResult<CotarIndex> {
+    /// Create a CotarIndex from a tar file
+    pub fn from_tar(file_name: &str, report_at: usize) -> IoResult<CotarIndex> {
         let file = File::open(file_name)?;
         let mut a = Archive::new(file);
 
@@ -42,15 +43,14 @@ impl CotarIndex {
                         ErrorKind::Other,
                         format!("Failed to insert {}", file_name),
                     ));
-                    // println!("Failed insert");
                 }
 
-                if cotar_index.entries.len() % 100_000 == 0 {
+                // If a report is requested dump how far through the file we are.
+                if report_at > 0 && cotar_index.entries.len() % report_at == 0 {
                     println!("{}", cotar_index.entries.len());
                 }
             }
         }
-        println!("{} Done", cotar_index.entries.len());
         Ok(cotar_index)
     }
 
@@ -69,8 +69,17 @@ impl CotarIndex {
         return true;
     }
 
+    /// Pack the COTAR index into a buffer with the specified amount of excess slots
     pub fn pack(&mut self, packing_factor: f64) -> IoResult<CotarIndexResult> {
         let entry_count = self.entries.len();
+        // Cannot pack into less than 100% size...
+        if packing_factor < 1.0 {
+            return Err(std::io::Error::new(
+                ErrorKind::Other,
+                "Packing factor too low",
+            ));
+        }
+        // Slot count is limited to uint32
         let slot_count = ((entry_count as f64) * packing_factor).ceil() as u64;
         if slot_count >= (u32::MAX as u64) {
             return Err(std::io::Error::new(
@@ -135,6 +144,7 @@ impl CotarIndex {
 
                 search_count = search_count + 1;
                 index = index + 1;
+                // If the index loops all the way around to the start something horrible has happened
                 if index == start_index {
                     return Err(std::io::Error::new(ErrorKind::Other, "Hash index looped"));
                 }
