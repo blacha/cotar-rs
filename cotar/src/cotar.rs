@@ -98,7 +98,7 @@ impl Cotar {
                 }));
             }
 
-            index +=  1;
+            index += 1;
             // Loop around to the start of the hash table
             if index >= entries {
                 index = 0;

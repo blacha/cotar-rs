@@ -59,7 +59,10 @@ impl CotarIndex {
     pub fn add(&mut self, path: &str, file_offset: u64, size: u32) -> IoResult<()> {
         let hash = crate::Cotar::hash(path);
         if self.entries.contains_key(&hash) {
-            return Err(Error::new(ErrorKind::Other, format!("Duplicate hash key : {}", path)));
+            return Err(Error::new(
+                ErrorKind::Other,
+                format!("Duplicate hash key : {}", path),
+            ));
         }
 
         let entry = crate::CotarIndexEntry {
