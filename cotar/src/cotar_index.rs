@@ -34,11 +34,12 @@ impl CotarIndex {
             let file = file?;
 
             let header = file.header();
-            let header_offset = file.raw_header_position() + 512;
+            // offset to the file is at end of the header
+            let file_offset = file.raw_header_position() + 512;
 
             if let Some(file_name) = file.header().path()?.to_str() {
                 let file_size = header.size()? as u32;
-                if !cotar_index.add(file_name, header_offset, file_size) {
+                if !cotar_index.add(file_name, file_offset, file_size) {
                     return Err(Error::new(
                         ErrorKind::Other,
                         format!("Failed to insert {}", file_name),
@@ -54,7 +55,7 @@ impl CotarIndex {
         Ok(cotar_index)
     }
 
-    pub fn add(&mut self, path: &str, header_offset: u64, size: u32) -> bool {
+    pub fn add(&mut self, path: &str, file_offset: u64, size: u32) -> bool {
         let hash = crate::Cotar::hash(path);
         if self.entries.contains_key(&hash) {
             return false;
@@ -62,8 +63,8 @@ impl CotarIndex {
 
         let entry = crate::CotarIndexEntry {
             hash,
-            offset: header_offset / 512,
-            size,
+            file_offset: file_offset / 512,
+            file_size: size,
         };
         self.entries.insert(entry.hash, entry);
         return true;
@@ -99,7 +100,7 @@ impl CotarIndex {
                 return hash_order;
             }
 
-            hash_order = a.offset.cmp(&b.offset);
+            hash_order = a.file_offset.cmp(&b.file_offset);
             if hash_order != Ordering::Equal {
                 return hash_order;
             }
@@ -154,11 +155,11 @@ impl CotarIndex {
                 max_search_count = search_count;
             }
 
-            // println!("Write {} at {}", entry.hash, cursor.position());
-            let block_offset = (entry.offset / 512) as u32;
+            // Tar files are aligned to 512 byte blocks store the block offset not the file offset
+            let file_block_offset = (entry.file_offset / 512) as u32;
             cursor.write(&u64::to_le_bytes(entry.hash))?;
-            cursor.write(&u32::to_le_bytes(block_offset))?;
-            cursor.write(&u32::to_le_bytes(entry.size))?;
+            cursor.write(&u32::to_le_bytes(file_block_offset))?;
+            cursor.write(&u32::to_le_bytes(entry.file_size))?;
         }
 
         return Ok(CotarIndexResult {

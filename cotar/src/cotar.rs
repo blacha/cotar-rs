@@ -14,8 +14,8 @@ pub const COTAR_V2_HEADER_MAGIC: u32 = 39079747;
 #[derive(Debug)] // TODO None of these need to be 64bits
 pub struct CotarIndexEntry {
     pub hash: u64,
-    pub offset: u64,
-    pub size: u32,
+    pub file_offset: u64,
+    pub file_size: u32,
 }
 
 #[derive(Debug)]
@@ -65,7 +65,7 @@ impl Cotar {
         match info {
             None => return Ok(None),
             Some(entry) => {
-                let bytes = self.view.bytes(entry.offset, entry.size as u64)?;
+                let bytes = self.view.bytes(entry.file_offset, entry.file_size as u64)?;
                 Ok(Some(bytes))
             }
         }
@@ -93,8 +93,8 @@ impl Cotar {
             if start_hash == hash {
                 return Ok(Some(CotarIndexEntry {
                     hash,
-                    offset: (self.view.u32_le(offset + 8)? as u64) * 512,
-                    size: self.view.u32_le(offset + 16)?,
+                    file_offset: (self.view.u32_le(offset + 8)? as u64) * 512,
+                    file_size: self.view.u32_le(offset + 16)?,
                 }));
             }
 
