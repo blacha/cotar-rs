@@ -14,9 +14,13 @@ pub struct CotarIndex {
 }
 
 pub struct CotarIndexResult {
+    /// Packed buffer
     pub vec: Vec<u8>,
+    /// Total entries packed
     pub entries: usize,
+    /// Max number of records to search to find a record
     pub search_max: usize,
+    /// Average amount of records needed to search to find a record in the index
     pub search_avg: f64,
 }
 
@@ -73,7 +77,7 @@ impl CotarIndex {
         Ok(cotar_index)
     }
 
-    pub fn add(&mut self, path: &str, file_offset: u64, size: u32) -> IoResult<()> {
+    pub fn add(&mut self, path: &str, file_offset: u64, file_size: u32) -> IoResult<()> {
         let hash = crate::Cotar::hash(path);
         if self.entries.contains_key(&hash) {
             return Err(Error::new(
@@ -84,8 +88,8 @@ impl CotarIndex {
 
         let entry = crate::CotarIndexEntry {
             hash,
-            file_offset: file_offset / 512,
-            file_size: size,
+            file_offset,
+            file_size,
         };
         self.entries.insert(entry.hash, entry);
         Ok(())
@@ -96,7 +100,7 @@ impl CotarIndex {
         let entry = self.entries.get(&hash_target);
 
         match entry {
-            None => return Err(Error::new(ErrorKind::Other, "Missing link target")),
+            None => Err(Error::new(ErrorKind::Other, "Missing link target")),
             Some(e) => {
                 let file_size = e.file_size;
                 let file_offset = e.file_offset;
@@ -116,7 +120,7 @@ impl CotarIndex {
             ));
         }
         // Slot count is limited to uint32
-        let slot_count = ((entry_count as f64) * packing_factor).ceil() as u64;
+        let slot_count = ((entry_count as f64) * packing_factor).floor() as u64;
         if slot_count >= (u32::MAX as u64) {
             return Err(std::io::Error::new(
                 ErrorKind::Other,

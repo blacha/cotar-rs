@@ -28,17 +28,17 @@ struct TileHashTree {
 
 impl TileHashTree {
     pub fn new() -> Self {
-        return TileHashTree {
+        TileHashTree {
             data: HashMap::with_capacity(1 << 16),
-        };
+        }
     }
 
-    pub fn insert(&mut self, file_size: usize, hash: u64, path: &String) -> Option<String> {
-        let hm = self.data.entry(file_size).or_insert(HashMap::new());
+    pub fn insert(&mut self, file_size: usize, hash: u64, path: &str) -> Option<String> {
+        let hm = self.data.entry(file_size).or_insert_with(HashMap::new);
         let entry = hm.entry(hash);
         match entry {
             Entry::Vacant(e) => {
-                e.insert(path.clone());
+                e.insert(path.to_string());
                 None
             }
             Entry::Occupied(e) => Some(e.get().to_owned()),
@@ -50,7 +50,7 @@ impl TileHashTree {
         for map in self.data.values() {
             count += map.len();
         }
-        return count;
+        count
     }
 }
 

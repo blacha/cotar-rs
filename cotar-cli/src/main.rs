@@ -1,11 +1,12 @@
 use clap::{AppSettings, Parser, Subcommand};
-use cotar::{Cotar, CotarIndex};
+use cotar::CotarIndex;
 use std::fs::File;
 use std::io::Write;
 use std::process;
 use std::time::Instant;
 
 mod mbtiles;
+mod validate;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -18,8 +19,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Validate tar index
-    Info { file_name: String },
     /// Create a tar index for a tar
     Index {
         /// Tar file to index
@@ -34,6 +33,14 @@ enum Commands {
         #[clap(short = 'm')]
         max_search: Option<usize>,
     },
+    /// Validate tar index
+    Validate {
+        /// Tar file name
+        file_name: String,
+
+        /// Optional external index file name
+        index_file_name: Option<String>,
+    },
 
     /// Create a tar from a mbtiles archive
     FromMbtiles {
@@ -44,48 +51,6 @@ enum Commands {
         #[clap(short = 'd')]
         drop_duplicates: Option<bool>,
     },
-}
-
-fn file_info(file_name: &str) {
-    println!("Reading cotar {}", file_name);
-
-    let ct_open = Cotar::from_tar(file_name);
-
-    match ct_open {
-        Err(e) => {
-            println!("{} Failed ❌\n {:?}", file_name, e);
-            process::exit(1);
-        }
-        Ok(mut ct) => {
-            println!(
-                "{} Opened ✔️ COT: v{}\nHash Slots: {}",
-                file_name, ct.version, ct.entries
-            );
-            let mut max_search = 0;
-            let mut total_search = 0;
-            let mut valid_entries: u64 = 0;
-            for i in 0..ct.entries {
-                let hash = ct.view.u64_le(i * 16 + 8).unwrap();
-                if hash != 0 {
-                    // Where should this hash actually be located
-                    valid_entries += 1;
-                    let search_count = i - (hash % ct.entries);
-                    total_search += search_count;
-                    if search_count > max_search {
-                        max_search = search_count;
-                    }
-                }
-            }
-
-            // What is the worst case
-            println!(
-                "Hash Stats Max: {} Avg: {:.2},",
-                max_search,
-                (total_search as f64) / (valid_entries as f64),
-            );
-            println!("Entries: {}", valid_entries);
-        }
-    }
 }
 
 const MAX_SEARCH: usize = 100;
@@ -133,7 +98,6 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Info { file_name } => file_info(file_name),
         Commands::Index {
             file_name,
             max_search,
@@ -146,5 +110,9 @@ fn main() {
         } => {
             crate::mbtiles::to_tar(mbtiles_file_name, drop_duplicates.unwrap_or(false)).unwrap();
         }
+        Commands::Validate {
+            file_name,
+            index_file_name,
+        } => crate::validate::validate(file_name, index_file_name).expect("❌ Failed to validate"),
     }
 }
