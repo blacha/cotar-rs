@@ -5,6 +5,8 @@ use std::io::Write;
 use std::process;
 use std::time::Instant;
 
+mod mbtiles;
+
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 #[clap(global_setting(AppSettings::PropagateVersion))]
@@ -16,9 +18,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Info {
-        file_name: String,
-    },
+    /// Validate tar index
+    Info { file_name: String },
+    /// Create a tar index for a tar
     Index {
         /// Tar file to index
         file_name: String,
@@ -31,6 +33,16 @@ enum Commands {
         /// Default: 100
         #[clap(short = 'm')]
         max_search: Option<usize>,
+    },
+
+    /// Create a tar from a mbtiles archive
+    FromMbtiles {
+        /// Target mbtiles file
+        mbtiles_file_name: String,
+
+        /// Drop duplicate files from the archive
+        #[clap(short = 'd')]
+        drop_duplicates: Option<bool>,
     },
 }
 
@@ -94,18 +106,19 @@ fn file_index_create(file_name: &str, max_search: usize) {
     println!("Packing index..");
     let mut packing_factor = 1.0;
     loop {
-        packing_factor += 0.01;
+        packing_factor += 0.0223;
         let packing_time = Instant::now();
 
         let output = cotar_index.pack(packing_factor).unwrap();
         println!(
-            "Index packed! current_factor:{:.2}% search:{} duration:{}ms ",
+            "Index packed! current_factor:{:.2}% search_max:{} search_avg: {:.2} duration:{}ms ",
             packing_factor * 100.0,
-            output.max_search,
+            output.search_max,
+            output.search_avg,
             packing_time.elapsed().as_millis()
         );
 
-        if output.max_search > max_search {
+        if output.search_max > max_search {
             continue;
         }
         output_file.write_all(&output.vec).unwrap();
@@ -126,6 +139,12 @@ fn main() {
             max_search,
         } => {
             file_index_create(file_name, max_search.unwrap_or(MAX_SEARCH));
+        }
+        Commands::FromMbtiles {
+            mbtiles_file_name,
+            drop_duplicates,
+        } => {
+            crate::mbtiles::to_tar(mbtiles_file_name, drop_duplicates.unwrap_or(false)).unwrap();
         }
     }
 }

@@ -7,6 +7,7 @@ use std::io::Read;
 use std::io::Result as IoResult;
 use std::io::Write;
 use tar::Archive;
+use tar::EntryType;
 
 pub struct CotarIndex {
     pub entries: HashMap<u64, crate::CotarIndexEntry>,
@@ -14,7 +15,9 @@ pub struct CotarIndex {
 
 pub struct CotarIndexResult {
     pub vec: Vec<u8>,
-    pub max_search: usize,
+    pub entries: usize,
+    pub search_max: usize,
+    pub search_avg: f64,
 }
 
 impl Default for CotarIndex {
@@ -40,17 +43,31 @@ impl CotarIndex {
             let file = file?;
 
             let header = file.header();
-            // offset to the file is at end of the header
-            let file_offset = file.raw_header_position() + 512;
+            let file_path = header.path()?;
+            let file_name = file_path.to_str().expect("Failed to extract path");
 
-            if let Some(file_name) = file.header().path()?.to_str() {
-                let file_size = header.size()? as u32;
-                cotar_index.add(file_name, file_offset, file_size)?;
-
-                // If a report is requested dump how far through the file we are.
-                if report_at > 0 && cotar_index.entries.len() % report_at == 0 {
-                    println!("{}", cotar_index.entries.len());
+            match header.entry_type() {
+                EntryType::Regular => {
+                    // offset to the file is at end of the header
+                    let file_offset = file.raw_header_position() + 512;
+                    // println!("load_entry {} {:?} {:?}", file_offset, header, header.entry_type());
+                    let file_size = header.size()? as u32;
+                    cotar_index.add(file_name, file_offset, file_size)?;
                 }
+                EntryType::Link => {
+                    let link_path = header.link_name()?.expect("No link path found??");
+                    let link_name = link_path.to_str().expect("Failed to extract link_path");
+                    cotar_index.link(file_name, link_name)?;
+                }
+                e => {
+                    // Folders/other files??
+                    println!("Unknown entry_type: {:?}", e)
+                }
+            }
+
+            // If a report is requested dump how far through the file we are.
+            if report_at > 0 && cotar_index.entries.len() % report_at == 0 {
+                println!("{}", cotar_index.entries.len());
             }
         }
         Ok(cotar_index)
@@ -72,6 +89,18 @@ impl CotarIndex {
         };
         self.entries.insert(entry.hash, entry);
         Ok(())
+    }
+
+    pub fn link(&mut self, source: &str, target: &str) -> IoResult<()> {
+        let hash_target = crate::Cotar::hash(target);
+        let entry = self.entries.get(&hash_target);
+
+        match entry {
+            None => return Err(Error::new(ErrorKind::Other, "Missing link target")),
+            // TODO how remove this compile warning?
+            // cannot borrow `*self` as mutable because it is also borrowed as immutable
+            Some(e) => self.add(source, e.file_offset, e.file_size),
+        }
     }
 
     /// Pack the COTAR index into a buffer with the specified amount of excess slots
@@ -124,6 +153,7 @@ impl CotarIndex {
         cursor.write_all(&u32::to_le_bytes(slot_count as u32))?;
 
         let mut max_search_count: usize = 0;
+        let mut total_search_count: usize = 0;
         for entry in all_values {
             let mut search_count: usize = 0;
             let mut index = (entry.hash % slot_count) as u64;
@@ -158,6 +188,7 @@ impl CotarIndex {
             if search_count > max_search_count {
                 max_search_count = search_count;
             }
+            total_search_count += search_count;
 
             // Tar files are aligned to 512 byte blocks store the block offset not the file offset
             let file_block_offset = (entry.file_offset / 512) as u32;
@@ -168,7 +199,9 @@ impl CotarIndex {
 
         Ok(CotarIndexResult {
             vec: cursor.into_inner(),
-            max_search: max_search_count,
+            entries: entry_count,
+            search_max: max_search_count,
+            search_avg: (total_search_count as f64) / (entry_count as f64),
         })
     }
 }

@@ -1,5 +1,2 @@
 [workspace]
-members = [
-    "cotar",
-    "cotar-cli"
-]
+members = ["cotar", "cotar-cli"]
