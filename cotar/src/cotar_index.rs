@@ -97,9 +97,11 @@ impl CotarIndex {
 
         match entry {
             None => return Err(Error::new(ErrorKind::Other, "Missing link target")),
-            // TODO how remove this compile warning?
-            // cannot borrow `*self` as mutable because it is also borrowed as immutable
-            Some(e) => self.add(source, e.file_offset, e.file_size),
+            Some(e) => {
+                let file_size = e.file_size;
+                let file_offset = e.file_offset;
+                self.add(source, file_offset, file_size)
+            }
         }
     }
 
