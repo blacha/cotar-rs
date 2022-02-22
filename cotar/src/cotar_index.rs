@@ -96,7 +96,7 @@ impl CotarIndex {
         Ok(())
     }
 
-    /// If a file is the exact same as another file in the archive, create a link 
+    /// If a file is the exact same as another file in the archive, create a link
     /// rather than storing the file twice
     pub fn link(&mut self, source: &str, target: &str) -> IoResult<()> {
         let hash_target = crate::Cotar::hash(target);

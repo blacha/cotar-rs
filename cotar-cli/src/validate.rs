@@ -42,7 +42,10 @@ pub fn validate(tar_file: &str, tar_index: &Option<String>) -> IoResult<()> {
                     // println!("Ok {} - {} {} {:?}", file_name, file_offset, file_size, info);
                 } else {
                     println!("Missing Lookup {}", file_name);
-                    return Err(Error::new(ErrorKind::Other, format!("Missing file: {}", file_name)));
+                    return Err(Error::new(
+                        ErrorKind::Other,
+                        format!("Missing file: {}", file_name),
+                    ));
                 }
             }
             EntryType::Link => {
