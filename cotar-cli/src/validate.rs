@@ -42,14 +42,8 @@ pub fn validate(tar_file: &str, tar_index: &Option<String>) -> IoResult<()> {
                     // println!("Ok {} - {} {} {:?}", file_name, file_offset, file_size, info);
                 } else {
                     println!("Missing Lookup {}", file_name);
-                    // process::exit(1);
-                    return Err(Error::new(ErrorKind::Other, "Missing file"));
+                    return Err(Error::new(ErrorKind::Other, format!("Missing file: {}", file_name)));
                 }
-                // assert_eq!(file_offset, info.unwrap().file_offset);
-
-                // let entry =
-                // println!("load_entry {} {:?} {:?}", file_offset, header, header.entry_type());
-                // cotar_index.add(file_name, file_offset, file_size)?;
             }
             EntryType::Link => {
                 // let link_path = header.link_name()?.expect("No link path found??");

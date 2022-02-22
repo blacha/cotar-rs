@@ -103,6 +103,7 @@ pub fn to_tar(file_name: &str, drop_duplicates: bool) -> IoResult<()> {
         // Flip Y coordinate because MBTiles files are stored against a tile matrix set.
         let y = (1 << tile.z) - 1 - tile.y;
 
+        // TODO is storing these as quadkeys the best option? could just use z/x/y.pbf
         let qk = quadkey::tile_to_str(
             tile.x as usize,
             y.try_into().expect("Failed to convert y into u32"),
@@ -111,6 +112,7 @@ pub fn to_tar(file_name: &str, drop_duplicates: bool) -> IoResult<()> {
 
         // Tar archives have 100 bytes for a path_name so this needs to be < 100 bytes long
         let file_name = format!("tiles/{}/{}.gz", tile.z, qk);
+        // TODO should these files be uncompressed?
 
         let file_hash = cotar::fnv1a_64(&tile.data);
         // does this file hash already exist in the output tar

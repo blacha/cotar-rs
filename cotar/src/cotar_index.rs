@@ -48,7 +48,7 @@ impl CotarIndex {
 
             let header = file.header();
             let file_path = header.path()?;
-            let file_name = file_path.to_str().expect("Failed to extract path");
+            let file_name = file_path.to_str().expect("Failed to extract file_name");
 
             match header.entry_type() {
                 EntryType::Regular => {
@@ -59,13 +59,14 @@ impl CotarIndex {
                     cotar_index.add(file_name, file_offset, file_size)?;
                 }
                 EntryType::Link => {
-                    let link_path = header.link_name()?.expect("No link path found??");
+                    let link_path = header.link_name()?.expect("No link_path found?");
                     let link_name = link_path.to_str().expect("Failed to extract link_path");
                     cotar_index.link(file_name, link_name)?;
                 }
-                e => {
-                    // Folders/other files??
-                    println!("Unknown entry_type: {:?}", e)
+                _e => {
+                    // TODO what to do with these types
+                    // Folders/other files, ignore for now??
+                    // println!("Unknown entry_type: {:?}", e)
                 }
             }
 
@@ -95,6 +96,8 @@ impl CotarIndex {
         Ok(())
     }
 
+    /// If a file is the exact same as another file in the archive, create a link 
+    /// rather than storing the file twice
     pub fn link(&mut self, source: &str, target: &str) -> IoResult<()> {
         let hash_target = crate::Cotar::hash(target);
         let entry = self.entries.get(&hash_target);
@@ -166,7 +169,7 @@ impl CotarIndex {
             let start_index = index;
 
             loop {
-                // Loop back to the start if we go around the file
+                // Loop back to the start if we go past the end of the file
                 if index >= slot_count {
                     index = 0;
                 }
