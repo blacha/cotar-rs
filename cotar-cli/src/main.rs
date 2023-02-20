@@ -1,4 +1,4 @@
-use clap::{AppSettings, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use cotar::CotarIndex;
 use std::fs::File;
 use std::io::Write;
@@ -10,8 +10,6 @@ mod validate;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
-#[clap(global_setting(AppSettings::PropagateVersion))]
-#[clap(global_setting(AppSettings::UseLongFormatForHelpSubcommand))]
 struct Cli {
     #[clap(subcommand)]
     command: Commands,
@@ -44,8 +42,15 @@ enum Commands {
 
     /// Create a tar from a mbtiles archive
     FromMbtiles {
-        /// Target mbtiles file
+        /// Source mbtiles file
         mbtiles_file_name: String,
+
+        // Location to write the cotar file
+        output_file: String,
+
+        /// Hash file contents and deduplicate files with the same hash
+        #[clap(short = 'e')]
+        deduplicate: Option<bool>,
 
         /// Drop duplicate files from the archive
         #[clap(short = 'd')]
@@ -106,9 +111,11 @@ fn main() {
         }
         Commands::FromMbtiles {
             mbtiles_file_name,
+            output_file,
+            deduplicate,
             drop_duplicates,
         } => {
-            crate::mbtiles::to_tar(mbtiles_file_name, drop_duplicates.unwrap_or(false)).unwrap();
+            crate::mbtiles::to_tar(mbtiles_file_name, output_file, deduplicate.unwrap_or(true), drop_duplicates.unwrap_or(false)).unwrap();
         }
         Commands::Validate {
             file_name,

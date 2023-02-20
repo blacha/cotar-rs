@@ -54,7 +54,7 @@ impl TileHashTree {
     }
 }
 
-pub fn to_tar(file_name: &str, drop_duplicates: bool) -> IoResult<()> {
+pub fn to_tar(file_name: &str, output_file: &str, deduplicate: bool, drop_duplicates: bool) -> IoResult<()> {
     if !file_name.ends_with(".mbtiles") {
         return Err(Error::new(
             ErrorKind::Other,
@@ -70,13 +70,26 @@ pub fn to_tar(file_name: &str, drop_duplicates: bool) -> IoResult<()> {
         .query_row("SELECT count(*) from tiles", [], |row| row.get(0))
         .expect("Failed to query tile_count");
 
+    // How often to report progress
+    let mut progress_count = 100_000;
+    if tile_count < 1_000_000.0 {
+        progress_count = (tile_count  / 10.0).round() as usize
+    }
+
     println!(
-        "MBtiles opened, tiles:{:.0} drop_duplicates:{}",
-        tile_count, drop_duplicates
+        "MBtiles opened, tiles:{:.0} deduplicate:{} drop_duplicates:{}",
+        tile_count, deduplicate, drop_duplicates
     );
 
-    // TODO would be good to create the index at the same time, It doesnt seem easy to get where the header was written too though :(
-    let file_writer = File::create(format!("{}.tar", file_name))?;
+    if deduplicate == false && drop_duplicates {
+        return Err(Error::new(
+            ErrorKind::Other,
+            "Cannot use deduplicate:false and drop_duplicates:true",
+        ));
+    }
+
+    // TODO would be good to create the index at the same time, It doesn't seem easy to get where the header was written too though :(
+    let file_writer = File::create(output_file)?;
     let mut tb = Builder::new(file_writer);
 
     let mut stmt = conn
@@ -103,50 +116,62 @@ pub fn to_tar(file_name: &str, drop_duplicates: bool) -> IoResult<()> {
         // Flip Y coordinate because MBTiles files are stored against a tile matrix set.
         let y = (1 << tile.z) - 1 - tile.y;
 
-        // TODO is storing these as quadkeys the best option? could just use z/x/y.pbf
-        let qk = quadkey::tile_to_str(
-            tile.x as usize,
-            y.try_into().expect("Failed to convert y into u32"),
-            tile.z as usize,
-        );
 
         // Tar archives have 100 bytes for a path_name so this needs to be < 100 bytes long
-        let file_name = format!("tiles/{}/{}.gz", tile.z, qk);
-        // TODO should these files be uncompressed?
+        let file_name = format!("tiles/{}/{}/{}", tile.z, tile.x, y);
+        // TODO get the file format from metadata?
 
-        let file_hash = cotar::fnv1a_64(&tile.data);
-        // does this file hash already exist in the output tar
-        match tht.insert(tile.data.len(), file_hash, &file_name) {
-            None => {
-                let mut header = Header::new_gnu();
-                header.set_size(tile.data.len() as u64);
-                tb.append_data(&mut header, &file_name, tile.data.as_slice())
-                    .expect("Failed to write file");
-            }
-            Some(p) => {
-                if drop_duplicates {
-                    // Drop them from the output tar
-                    // TODO this should be recorded somewhere
-                } else {
-                    // Duplicate entry store it as a link to the previous entry
+        // Hash the files and de-duplicate them in the tar using links 
+        if deduplicate {
+            let file_hash = cotar::fnv1a_64(&tile.data);
+            // does this file hash already exist in the output tar
+            match tht.insert(tile.data.len(), file_hash, &file_name) {
+                None => {
                     let mut header = Header::new_gnu();
-                    header.set_size(0);
-                    header.set_entry_type(EntryType::Link);
-                    tb.append_link(&mut header, file_name, p)
-                        .expect("Failed to insert");
+                    header.set_size(tile.data.len() as u64);
+                    tb.append_data(&mut header, &file_name, tile.data.as_slice())
+                        .expect("Failed to write file");
+                }
+                Some(p) => {
+                    if drop_duplicates {
+                        // Drop them from the output tar
+                        // TODO this should be recorded somewhere
+                    } else {
+                        // Duplicate entry store it as a link to the previous entry
+                        let mut header = Header::new_gnu();
+                        header.set_size(0);
+                        header.set_entry_type(EntryType::Link);
+                        tb.append_link(&mut header, file_name, p)
+                            .expect("Failed to insert");
+                    }
                 }
             }
+        } else {
+            let mut header = Header::new_gnu();
+            header.set_size(tile.data.len() as u64);
+            tb.append_data(&mut header, &file_name, tile.data.as_slice())
+                .expect("Failed to write file");
+        }
+
+        if count == 0 {
+            println!("{:>10} {:>6.2}% {:>8} {:>32} {}", "count",  "", "unique_files", "last_path", "duration");
         }
         count += 1;
 
-        if count % 250_000 == 0 {
+        if count % progress_count == 0 {
+            let last_tile = format!("tiles/{}/{}/{}", tile.z, tile.x, y);
+            let uniques = match tht.len() {
+                0 => count,
+                len => len
+            };
+
             let now = SystemTime::now();
             println!(
-                "{:>10} {:>5.2}% {:>8}  {:>32} {:.2?}",
+                "{:>10} {:>6.2}% {:>8} {:>32} {:.2?}",
                 count,
                 (count as f64 / tile_count) * 100.0,
-                tht.len(),
-                qk,
+                uniques,
+                last_tile,
                 now.duration_since(current).unwrap(),
             );
             current = SystemTime::now();
