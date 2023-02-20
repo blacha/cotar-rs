@@ -54,7 +54,12 @@ impl TileHashTree {
     }
 }
 
-pub fn to_tar(file_name: &str, output_file: &str, deduplicate: bool, drop_duplicates: bool) -> IoResult<()> {
+pub fn to_tar(
+    file_name: &str,
+    output_file: &str,
+    deduplicate: bool,
+    drop_duplicates: bool,
+) -> IoResult<()> {
     if !file_name.ends_with(".mbtiles") {
         return Err(Error::new(
             ErrorKind::Other,
@@ -73,7 +78,7 @@ pub fn to_tar(file_name: &str, output_file: &str, deduplicate: bool, drop_duplic
     // How often to report progress
     let mut progress_count = 100_000;
     if tile_count < 1_000_000.0 {
-        progress_count = (tile_count  / 10.0).round() as usize
+        progress_count = (tile_count / 10.0).round() as usize
     }
 
     println!(
@@ -116,12 +121,11 @@ pub fn to_tar(file_name: &str, output_file: &str, deduplicate: bool, drop_duplic
         // Flip Y coordinate because MBTiles files are stored against a tile matrix set.
         let y = (1 << tile.z) - 1 - tile.y;
 
-
         // Tar archives have 100 bytes for a path_name so this needs to be < 100 bytes long
         let file_name = format!("tiles/{}/{}/{}", tile.z, tile.x, y);
         // TODO get the file format from metadata?
 
-        // Hash the files and de-duplicate them in the tar using links 
+        // Hash the files and de-duplicate them in the tar using links
         if deduplicate {
             let file_hash = cotar::fnv1a_64(&tile.data);
             // does this file hash already exist in the output tar
@@ -154,7 +158,10 @@ pub fn to_tar(file_name: &str, output_file: &str, deduplicate: bool, drop_duplic
         }
 
         if count == 0 {
-            println!("{:>10} {:>6.2}% {:>8} {:>32} {}", "count",  "", "unique_files", "last_path", "duration");
+            println!(
+                "{:>10} {:>6.2}% {:>8} {:>32} {}",
+                "count", "", "unique_files", "last_path", "duration"
+            );
         }
         count += 1;
 
@@ -162,7 +169,7 @@ pub fn to_tar(file_name: &str, output_file: &str, deduplicate: bool, drop_duplic
             let last_tile = format!("tiles/{}/{}/{}", tile.z, tile.x, y);
             let uniques = match tht.len() {
                 0 => count,
-                len => len
+                len => len,
             };
 
             let now = SystemTime::now();

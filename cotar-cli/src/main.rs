@@ -115,7 +115,13 @@ fn main() {
             deduplicate,
             drop_duplicates,
         } => {
-            crate::mbtiles::to_tar(mbtiles_file_name, output_file, deduplicate.unwrap_or(true), drop_duplicates.unwrap_or(false)).unwrap();
+            crate::mbtiles::to_tar(
+                mbtiles_file_name,
+                output_file,
+                deduplicate.unwrap_or(true),
+                drop_duplicates.unwrap_or(false),
+            )
+            .unwrap();
         }
         Commands::Validate {
             file_name,
