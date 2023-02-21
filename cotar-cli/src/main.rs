@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use cotar::CotarIndex;
 use std::fs::File;
 use std::io::Write;
+use std::path::Path;
 use std::process;
 use std::time::Instant;
 
@@ -17,10 +18,16 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Create a tar index for a tar
-    Index {
+    /// Create a cotar from a tar file
+    Create {
         /// Tar file to index
         file_name: String,
+
+        /// Overwrite any existing files
+        ///
+        /// Default: false
+        #[clap(long = "force", short = 'f')]
+        force: Option<bool>,
 
         /// Worst case number of records that need to be searched to find a specific file
         ///
@@ -31,6 +38,28 @@ enum Commands {
         #[clap(short = 'm')]
         max_search: Option<usize>,
     },
+
+    /// Create a tar index for a tar
+    CreateIndex {
+        /// Tar file to index
+        file_name: String,
+
+        /// Overwrite any existing files
+        ///
+        /// Default: false
+        #[clap(long = "force", short = 'f')]
+        force: Option<bool>,
+
+        /// Worst case number of records that need to be searched to find a specific file
+        ///
+        /// - 25 slots: "-m 25"
+        /// - 5 slots: "-m 5"
+        ///
+        /// Default: 100
+        #[clap(short = 'm')]
+        max_search: Option<usize>,
+    },
+
     /// Validate tar index
     Validate {
         /// Tar file name
@@ -60,9 +89,19 @@ enum Commands {
 
 const MAX_SEARCH: usize = 100;
 
-fn file_index_create(file_name: &str, max_search: usize) {
+fn create(file_name: &str, force: bool, max_search: usize) {
+    file_index_create(file_name, force, max_search);
+}
+
+fn file_index_create(file_name: &str, force: bool, max_search: usize) {
     if !file_name.ends_with(".tar") {
         println!("❌ {} does not end with .tar", file_name);
+        process::exit(1);
+    }
+
+    let index_file_name = format!("{}.index", file_name);
+    if !force && Path::new(index_file_name.as_str()).exists() {
+        println!("❌ {} already exists", index_file_name);
         process::exit(1);
     }
 
@@ -71,7 +110,7 @@ fn file_index_create(file_name: &str, max_search: usize) {
     println!("Tar read done.. files: {}", cotar_index.entries.len());
 
     // TODO handle file exists
-    let mut output_file = File::create("output.tar.index").expect("Failed to create output file");
+    let mut output_file = File::create(index_file_name).expect("Failed to create output file");
 
     println!("Packing index..");
     let mut packing_factor = 1.0;
@@ -103,11 +142,27 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Index {
+        Commands::CreateIndex {
             file_name,
+            force,
             max_search,
         } => {
-            file_index_create(file_name, max_search.unwrap_or(MAX_SEARCH));
+            file_index_create(
+                file_name,
+                force.unwrap_or(false),
+                max_search.unwrap_or(MAX_SEARCH),
+            );
+        }
+        Commands::Create {
+            file_name,
+            force,
+            max_search,
+        } => {
+            create(
+                file_name,
+                force.unwrap_or(false),
+                max_search.unwrap_or(MAX_SEARCH),
+            );
         }
         Commands::FromMbtiles {
             mbtiles_file_name,
