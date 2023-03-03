@@ -21,10 +21,12 @@ jobs:
           components: rustfmt
 
       - run: cargo fmt --all -- --check
+      
+      - name: Build
+        run: cargo build --release --locked --target
 
       - name: Test  
         run: cargo test
 
-      - name: Build
-        run: cargo build
+
 
