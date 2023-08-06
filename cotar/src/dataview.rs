@@ -13,8 +13,6 @@ pub struct DataView {
     pub size: u64,
 }
 
-// TODO this is a bad way of reading files, is there a better rust crate for this
-// Ideally the same as npm lib @chunkd/fs which reads chunks from remote files with a async api
 impl DataView {
     pub fn open(file_name: &str) -> IoResult<Self> {
         let file = File::open(file_name)?;
@@ -29,7 +27,11 @@ impl DataView {
 
     pub fn read_exact(&mut self, offset: u64, len: u64) -> IoResult<Bytes> {
         let mut buf = vec![0; len as usize];
-        self.file.seek(SeekFrom::Start(offset))?;
+
+        let current_position = self.file.stream_position()?;
+        if current_position != offset {
+            self.file.seek(SeekFrom::Start(offset))?;
+        } 
         self.file.read_exact(&mut buf)?;
         Ok(Bytes::from(buf))
     }

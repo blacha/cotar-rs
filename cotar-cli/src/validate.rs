@@ -62,7 +62,7 @@ pub fn validate(tar_file: &str, tar_index: &Option<String>) -> IoResult<()> {
         count += 1;
         // If a report is requested dump how far through the file we are.
         if count % 25_000 == 0 {
-            println!("{}", count);
+            println!("Validated {} / {}", count, ct.entries);
         }
     }
 
