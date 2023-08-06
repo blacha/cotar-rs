@@ -3,7 +3,6 @@ use std::io::BufReader;
 use std::io::Read;
 use std::io::Result as IoResult;
 use std::io::Seek;
-use std::io::SeekFrom;
 
 use bytes::Bytes;
 
@@ -30,8 +29,9 @@ impl DataView {
 
         let current_position = self.file.stream_position()?;
         if current_position != offset {
-            self.file.seek(SeekFrom::Start(offset))?;
-        } 
+            let seek_offset: i64 = (offset - current_position) as i64;
+            self.file.seek_relative(seek_offset)?;
+        }
         self.file.read_exact(&mut buf)?;
         Ok(Bytes::from(buf))
     }
