@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0](https://github.com/blacha/cotar-rs/compare/cotar-v0.2.0...cotar-v0.3.0) (2023-08-06)
+
+
+### Features
+
+* **cotar:** move to BufReader ([4116ec5](https://github.com/blacha/cotar-rs/commit/4116ec5462921b15f3eb50c17ae0fb094b270e0c))
+* **cotar:** only seek if needed ([9c013e1](https://github.com/blacha/cotar-rs/commit/9c013e17a71edc9d3e9379680ef1861f296ab0f0))
+* **cotar:** seek with relative offsets ([1e0d072](https://github.com/blacha/cotar-rs/commit/1e0d072ae594cd1385ef3e06d6cccf0a5505a8f6))
+
 ## [0.2.0](https://github.com/blacha/cotar-rs/compare/cotar-v0.1.0...cotar-v0.2.0) (2023-03-01)
 
 
