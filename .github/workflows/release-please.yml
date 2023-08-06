@@ -88,6 +88,6 @@ jobs:
 
       - name: Setup | Publish Release
         run: |
-          gh release upload ${{ needs.release_please.outputs.cli_tag_name }} cotar-*/cotar* --repo=blacha/cotar
+          gh release upload ${{ needs.release_please.outputs.cli_tag_name }} cotar-*/cotar* --repo=blacha/cotar-rs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
