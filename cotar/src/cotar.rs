@@ -19,7 +19,7 @@ pub struct CotarIndexEntry {
     pub hash: u64,
     /// File offset
     pub file_offset: u64,
-    /// File size, TODO this isn't fully needed as the file_size is at file_offset - some value
+    /// File size
     pub file_size: u32,
 }
 
@@ -33,7 +33,7 @@ pub struct Cotar {
     pub index_offset: u64,
     /// View of the
     pub view: dataview::DataView,
-    /// Index reference if the index is a seperate file
+    /// Index reference if the index is a separate file
     pub view_index: Option<dataview::DataView>,
 }
 
