@@ -40,7 +40,7 @@ enum Commands {
     },
 
     /// Create a tar index for a tar
-    CreateIndex {
+    Index {
         /// Tar file to index
         file_name: String,
 
@@ -142,7 +142,7 @@ fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::CreateIndex {
+        Commands::Index {
             file_name,
             force,
             max_search,
