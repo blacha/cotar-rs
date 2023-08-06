@@ -1,5 +1,7 @@
 # Changelog
 
+
+
 ## [0.3.1](https://github.com/blacha/cotar-rs/compare/cotar-cli-v0.3.0...cotar-cli-v0.3.1) (2023-08-06)
 
 

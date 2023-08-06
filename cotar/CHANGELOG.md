@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/blacha/cotar-rs/compare/cotar-v0.3.0...cotar-v0.3.1) (2023-08-06)
+
+
+### Bug Fixes
+
+* cleanup comments ([460c929](https://github.com/blacha/cotar-rs/commit/460c92925ba11a870ae2e7f26dcb426fcd123d84))
+
 ## [0.3.0](https://github.com/blacha/cotar-rs/compare/cotar-v0.2.0...cotar-v0.3.0) (2023-08-06)
 
 
