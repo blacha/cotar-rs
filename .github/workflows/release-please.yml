@@ -63,14 +63,14 @@ jobs:
       - name: Post Build | Prepare artifacts 
         run: |
           cd target/${{ matrix.target }}/release
-          tar czvf ../../../cotar-${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.name }}.tar.gz cotar
+          tar czvf ../../../${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.name }}.tar.gz cotar
           cd -
 
       - name: Release | Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: cotar-${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.name }}.tar.gz
-          path: cotar-${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.name }}.tar.gz
+          name: ${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.name }}.tar.gz
+          path: ${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.name }}.tar.gz
 
   upload_artifacts:
     name: Add CLI Build Artifacts to Release
