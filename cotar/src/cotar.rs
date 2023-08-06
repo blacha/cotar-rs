@@ -1,10 +1,12 @@
 use std::io::Result as IoResult;
 use std::io::{Error, ErrorKind};
 
+use bytes::{Buf, Bytes};
+
 use crate::dataview;
 use crate::fnv1a;
 
-/// V1 cotar files have a fixed header and entry size
+/// V2 cotar files have a fixed header and entry size
 pub const COTAR_V2_HEADER_SIZE: u64 = 8;
 pub const COTAR_V2_INDEX_ENTRY_SIZE: u64 = 16;
 
@@ -13,8 +15,8 @@ pub const COTAR_V2_HEADER_MAGIC: u32 = 39079747;
 
 #[derive(Debug)] // TODO None of these need to be 64bits
 pub struct CotarIndexEntry {
+    /// FNV1A Hash of the file_name
     pub hash: u64,
-
     /// File offset
     pub file_offset: u64,
     /// File size, TODO this isn't fully needed as the file_size is at file_offset - some value
@@ -35,27 +37,49 @@ pub struct Cotar {
     pub view_index: Option<dataview::DataView>,
 }
 
+pub struct CotarHeader {
+    /// Cotar magic generally "COT\x02"
+    pub magic: u32,
+    /// Cotar index version generally v2
+    pub version: u8,
+    /// Number of entries in the tar archive
+    pub entries: u32,
+}
+
 impl Cotar {
+    pub fn header_from_bytes(mut header_bytes: Bytes) -> IoResult<CotarHeader> {
+        if header_bytes.len() < COTAR_V2_HEADER_SIZE as usize {
+            return Err(Error::new(ErrorKind::Other, "Invalid header length"));
+        }
+        let magic = header_bytes.get_u32_le();
+        if magic != COTAR_V2_HEADER_MAGIC {
+            return Err(Error::new(ErrorKind::Other, "Invalid magic"));
+        }
+
+        let entries = header_bytes.get_u32_le();
+
+        Ok(CotarHeader {
+            magic,
+            version: 2,
+            entries,
+        })
+    }
+
     /// Load a cotar from a packed tar file
     ///
     /// The index of the tar must be the final bytes of the tar file
     pub fn from_tar(file_name: &str) -> IoResult<Self> {
         let mut view = dataview::DataView::open(file_name)?;
+        let header_bytes =
+            view.read_exact(view.size - COTAR_V2_HEADER_SIZE, COTAR_V2_HEADER_SIZE)?;
 
-        let magic = view.u32_le(view.size - 8)?;
-        // "COT\x02" as a u32
-        if magic != COTAR_V2_HEADER_MAGIC {
-            return Err(Error::new(ErrorKind::Other, "Invalid magic"));
-        }
+        let header = Cotar::header_from_bytes(header_bytes)?;
 
-        let version = view.byte(view.size - 5)?;
-        let entries = view.u32_le(view.size - 4)? as u64;
-
-        let index_offset = view.size - 16 - entries * COTAR_V2_INDEX_ENTRY_SIZE;
+        let index_offset = view.size - 16 - (header.entries as u64) * COTAR_V2_INDEX_ENTRY_SIZE;
 
         Ok(Cotar {
-            version,
-            entries,
+            version: header.version,
+            entries: header.entries as u64,
             index_offset,
             view,
             view_index: None,
@@ -66,20 +90,14 @@ impl Cotar {
     pub fn from_tar_index(tar_file_name: &str, index_file_name: &str) -> IoResult<Self> {
         let mut view_index = dataview::DataView::open(index_file_name)?;
 
-        let magic = view_index.u32_le(0)?;
-        // "COT\x02" as a u32
-        if magic != COTAR_V2_HEADER_MAGIC {
-            return Err(Error::new(ErrorKind::Other, "Invalid magic"));
-        }
-
-        let version = view_index.byte(3)?;
-        let entries = view_index.u32_le(4)? as u64;
+        let header_bytes = view_index.read_exact(0, COTAR_V2_INDEX_ENTRY_SIZE)?;
+        let header = Cotar::header_from_bytes(header_bytes)?;
 
         let index_offset = 0;
 
         Ok(Cotar {
-            version,
-            entries,
+            version: header.version,
+            entries: header.entries as u64,
             index_offset,
             view_index: Some(view_index),
             view: dataview::DataView::open(tar_file_name)?,
@@ -96,13 +114,15 @@ impl Cotar {
     /// Read the raw bytes of a file from the tar archive
     ///
     /// Returns None if the file is not found
-    pub fn get(&mut self, path: &str) -> IoResult<Option<Vec<u8>>> {
+    pub fn get(&mut self, path: &str) -> IoResult<Option<Bytes>> {
         let info = self.info(path)?;
 
         match info {
             None => Ok(None),
             Some(entry) => {
-                let bytes = self.view.bytes(entry.file_offset, entry.file_size as u64)?;
+                let bytes = self
+                    .view
+                    .read_exact(entry.file_offset, entry.file_size as u64)?;
                 Ok(Some(bytes))
             }
         }
@@ -123,7 +143,8 @@ impl Cotar {
             let offset =
                 self.index_offset + index * COTAR_V2_INDEX_ENTRY_SIZE + COTAR_V2_HEADER_SIZE;
 
-            let start_hash = view_index.u64_le(offset)?;
+            let mut bytes = view_index.read_exact(offset, COTAR_V2_INDEX_ENTRY_SIZE)?;
+            let start_hash = bytes.get_u64_le();
             // Null entry file is missing
             if start_hash == 0 {
                 return Ok(None);
@@ -132,8 +153,8 @@ impl Cotar {
             if start_hash == hash {
                 return Ok(Some(CotarIndexEntry {
                     hash,
-                    file_offset: (view_index.u32_le(offset + 8)? as u64) * 512,
-                    file_size: view_index.u32_le(offset + 12)?,
+                    file_offset: (bytes.get_u32_le() as u64) * 512,
+                    file_size: bytes.get_u32_le(),
                 }));
             }
 
@@ -148,4 +169,32 @@ impl Cotar {
             }
         }
     }
+}
+
+#[test]
+
+fn test_header() {
+    let buf = Bytes::from(vec![0x43, 0x4f, 0x54, 0x02, 0x1c, 0x00, 0x00, 0x00, 0x28]);
+    let header = Cotar::header_from_bytes(buf).unwrap();
+
+    assert_eq!(header.magic, COTAR_V2_HEADER_MAGIC);
+    assert_eq!(header.entries, 28);
+    // assert_eq!(header.version, 2);
+}
+
+#[test]
+fn test_header_invalid_version() {
+    // Set version to 0x01
+    let buf = Bytes::from(vec![0x43, 0x4f, 0x54, 0x01, 0x1c, 0x00, 0x00, 0x00, 0x28]);
+    let header = Cotar::header_from_bytes(buf);
+
+    assert_eq!(header.is_ok(), false)
+}
+#[test]
+fn test_header_invalid_magic() {
+    // Set magic to "AOT\x02"
+    let buf = Bytes::from(vec![0x41, 0x4f, 0x54, 0x02, 0x1c, 0x00, 0x00, 0x00, 0x28]);
+    let header = Cotar::header_from_bytes(buf);
+
+    assert_eq!(header.is_ok(), false)
 }

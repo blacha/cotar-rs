@@ -6,6 +6,7 @@ use std::path::Path;
 use std::process;
 use std::time::Instant;
 
+#[cfg(feature = "mbtiles")]
 mod mbtiles;
 mod validate;
 
@@ -70,6 +71,7 @@ enum Commands {
     },
 
     /// Create a tar from a mbtiles archive
+    #[cfg(feature = "mbtiles")]
     FromMbtiles {
         /// Source mbtiles file
         mbtiles_file_name: String,
@@ -164,6 +166,7 @@ fn main() {
                 max_search.unwrap_or(MAX_SEARCH),
             );
         }
+        #[cfg(feature = "mbtiles")]
         Commands::FromMbtiles {
             mbtiles_file_name,
             output_file,
