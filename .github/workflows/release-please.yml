@@ -33,10 +33,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-          - target: arm-unknown-linux-musleabihf
-            os: ubuntu-latest
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, name: linux-x64 }
+          - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu, name: linux-arm64 }
+          - { os: macos-latest,  target: x86_64-apple-darwin, name: darwin-x64  }
+          - { os: macos-latest,  target: aarch64-apple-darwin, name: darwin-arm64  }
+           
     runs-on: ${{ matrix.os }}
     continue-on-error: true
 
@@ -62,14 +63,14 @@ jobs:
       - name: Post Build | Prepare artifacts 
         run: |
           cd target/${{ matrix.target }}/release
-          tar czvf ../../../cotar-${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.target }}.tar.gz cotar
+          tar czvf ../../../cotar-${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.name }}.tar.gz cotar
           cd -
 
       - name: Release | Upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: cotar-${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.target }}.tar.gz
-          path: cotar-${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.target }}.tar.gz
+          name: cotar-${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.name }}.tar.gz
+          path: cotar-${{ needs.release_please.outputs.cli_tag_name }}-${{ matrix.name }}.tar.gz
 
   upload_artifacts:
     name: Add CLI Build Artifacts to Release
