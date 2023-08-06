@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/blacha/cotar-rs/compare/cotar-cli-v0.3.0...cotar-cli-v0.3.1) (2023-08-06)
+
+
+### Bug Fixes
+
+* use a bundled sqlite ([48bc736](https://github.com/blacha/cotar-rs/commit/48bc736d0782dad1447b87e8f519b513263b4bfe))
+
 ## [0.3.0](https://github.com/blacha/cotar-rs/compare/cotar-cli-v0.2.0...cotar-cli-v0.3.0) (2023-08-06)
 
 
