@@ -1,10 +1,30 @@
 # Cotar
 
-
-**Work in progress** 
-
 Rust based [cotar](https://github.com/linz/cotar) reader
 
+## CLI
+
+Commands:
+index Create a tar index for a tar
+validate Validate tar index
+from-mbtiles Create a tar from a mbtiles archive
+
+Examples
+Create a tar index and validate it
+
+create `topographic.tar.index`
+
+```
+cotar index topographic.tar
+```
+
+validate the new index
+
+```
+cotar validate topographic.tar topographic.tar.index
+```
+
+## Library
 
 ```rust
 use cotar;
@@ -19,4 +39,10 @@ println!("ct.info('{}') {:?}", file_name, file_info);
 let file_data = ct.get(file_name).expect("Failed to .get()");
 println!("ct.get('{}') {:?}", file_name, file_data);
 // [26, 66, 120 ... ]
+```
+
+### Building
+
+```
+cargo build --release --features mbtiles
 ```
