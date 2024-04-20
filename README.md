@@ -44,5 +44,5 @@ println!("ct.get('{}') {:?}", file_name, file_data);
 ### Building
 
 ```
-cargo build --release --features mbtiles
+cargo build --release
 ```

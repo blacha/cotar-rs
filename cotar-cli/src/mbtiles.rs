@@ -6,12 +6,22 @@ use std::io::{Error, ErrorKind, Result as IoResult};
 use std::time::SystemTime;
 use tar::{Builder, EntryType, Header};
 
+/// Check if the buffer looks like a gziped buffer
+fn is_gzip(buf: &[u8]) -> bool {
+    return buf.len() > 2 && buf[0] == 31 && buf[1] == 139;
+}
+
 #[derive(Debug)]
 struct Tile {
     x: u32,
     y: u32,
     z: u32,
     data: Vec<u8>,
+}
+
+struct SqliteMetadata {
+    name: String,
+    value: String,
 }
 
 fn open_mbtiles(file_name: &str) -> IoResult<Connection> {
@@ -76,9 +86,9 @@ pub fn to_tar(
         .expect("Failed to query tile_count");
 
     // How often to report progress
-    let mut progress_count = 100_000;
+    let mut progress_count = 50_000;
     if tile_count < 1_000_000.0 {
-        progress_count = (tile_count / 10.0).round() as usize
+        progress_count = (tile_count / 20.0).round() as usize
     }
 
     println!(
@@ -98,8 +108,30 @@ pub fn to_tar(
     let mut tb = Builder::new(file_writer);
 
     let mut stmt = conn
-        .prepare("SELECT * from tiles")
+        .prepare("SELECT zoom_level,tile_column,tile_row,tile_data from tiles")
         .expect("Failed to query tiles from sqlite");
+
+    let mut metadata = conn
+        .prepare("SELECT name,value from metadata")
+        .expect("Failed to query metedata from sqlite");
+
+    let metadata_rows = metadata
+        .query_map([], |row| {
+            Ok(SqliteMetadata {
+                name: row.get(0)?,
+                value: row.get(1)?,
+            })
+        })
+        .expect("Failed to extract metadata");
+
+    let mut format = String::from("pbf");
+    for meta_row in metadata_rows {
+        let row = meta_row.unwrap();
+        if row.name == "format" {
+            format = row.value.to_string();
+            println!("Metadata format: {}", format);
+        }
+    }
 
     let tile_iter = stmt
         .query_map([], |row| {
@@ -113,8 +145,9 @@ pub fn to_tar(
         .expect("Failed to extract tile");
 
     let mut count: usize = 0;
+    let mut duplicates: usize = 0;
     let start = SystemTime::now();
-    let mut current = start;
+    let mut current: SystemTime = start;
 
     for tile_r in tile_iter {
         let tile = tile_r.unwrap();
@@ -122,8 +155,15 @@ pub fn to_tar(
         let y = (1 << tile.z) - 1 - tile.y;
 
         // Tar archives have 100 bytes for a path_name so this needs to be < 100 bytes long
-        let file_name = format!("tiles/{}/{}/{}", tile.z, tile.x, y);
-        // TODO get the file format from metadata?
+        let base_name = format!("tiles/{}/{}/{}", tile.z, tile.x, y);
+        let mut file_name_parts = Vec::new();
+        file_name_parts.push(base_name);
+        file_name_parts.push(format.clone());
+        if is_gzip(&tile.data) {
+            file_name_parts.push(String::from("gz"))
+        }
+
+        let file_name = file_name_parts.join(".");
 
         // Hash the files and de-duplicate them in the tar using links
         if deduplicate {
@@ -140,6 +180,7 @@ pub fn to_tar(
                     if drop_duplicates {
                         // Drop them from the output tar
                         // TODO this should be recorded somewhere
+                        duplicates = duplicates + 1;
                     } else {
                         // Duplicate entry store it as a link to the previous entry
                         let mut header = Header::new_gnu();
@@ -166,7 +207,6 @@ pub fn to_tar(
         count += 1;
 
         if count % progress_count == 0 {
-            let last_tile = format!("tiles/{}/{}/{}", tile.z, tile.x, y);
             let uniques = match tht.len() {
                 0 => count,
                 len => len,
@@ -174,11 +214,11 @@ pub fn to_tar(
 
             let now = SystemTime::now();
             println!(
-                "{:>10} {:>6.2}% {:>8} {:>32} {:.2?}",
+                "{:>10} {:>6.1}% {:>8} {:>32} {:.2?}",
                 count,
                 (count as f64 / tile_count) * 100.0,
                 uniques,
-                last_tile,
+                file_name_parts.join("."),
                 now.duration_since(current).unwrap(),
             );
             current = SystemTime::now();
