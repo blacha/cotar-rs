@@ -6,6 +6,8 @@ use std::io::{Error, ErrorKind, Result as IoResult};
 use std::time::SystemTime;
 use tar::{Builder, EntryType, Header};
 
+use crate::file_index_create;
+
 /// Check if the buffer looks like a gziped buffer
 fn is_gzip(buf: &[u8]) -> bool {
     return buf.len() > 2 && buf[0] == 31 && buf[1] == 139;
@@ -155,15 +157,12 @@ pub fn to_tar(
         let y = (1 << tile.z) - 1 - tile.y;
 
         // Tar archives have 100 bytes for a path_name so this needs to be < 100 bytes long
-        let base_name = format!("tiles/{}/{}/{}", tile.z, tile.x, y);
-        let mut file_name_parts = Vec::new();
-        file_name_parts.push(base_name);
-        file_name_parts.push(format.clone());
+        let mut file_name = format!("tiles/{}/{}/{}.", tile.z, tile.x, y);
+        file_name.push_str(format.as_str());
         if is_gzip(&tile.data) {
-            file_name_parts.push(String::from("gz"))
+            file_name.push_str(".gz")
         }
 
-        let file_name = file_name_parts.join(".");
 
         // Hash the files and de-duplicate them in the tar using links
         if deduplicate {
@@ -186,7 +185,7 @@ pub fn to_tar(
                         let mut header = Header::new_gnu();
                         header.set_size(0);
                         header.set_entry_type(EntryType::Link);
-                        tb.append_link(&mut header, file_name, p)
+                        tb.append_link(&mut header, &file_name, p)
                             .expect("Failed to insert");
                     }
                 }
@@ -218,7 +217,7 @@ pub fn to_tar(
                 count,
                 (count as f64 / tile_count) * 100.0,
                 uniques,
-                file_name_parts.join("."),
+                file_name,
                 now.duration_since(current).unwrap(),
             );
             current = SystemTime::now();
@@ -232,6 +231,8 @@ pub fn to_tar(
         count,
         tht.len(),
     );
+
+    file_index_create(output_file, false, 50);
 
     Ok(())
 }
