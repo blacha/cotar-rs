@@ -105,7 +105,7 @@ fn file_index_create(file_name: &str, force: bool, max_search: usize) {
         process::exit(1);
     }
 
-    println!("Reading tar {} max_search:{}", file_name, max_search);
+    println!("Creating tar index from:{} max_search:{}", file_name, max_search);
     let mut cotar_index = CotarIndex::from_tar(file_name, 100_000).unwrap();
     println!("Tar read done.. files: {}", cotar_index.entries.len());
 

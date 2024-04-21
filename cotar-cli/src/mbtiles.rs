@@ -79,6 +79,13 @@ pub fn to_tar(
         ));
     }
 
+    if !output_file.ends_with(".tar") {
+        return Err(Error::new(
+            ErrorKind::Other,
+            format!("\"{}\" does not end with .tar", output_file),
+        ));
+    }
+
     let conn = open_mbtiles(file_name)?;
     let mut tht = TileHashTree::new();
 
@@ -163,7 +170,6 @@ pub fn to_tar(
             file_name.push_str(".gz")
         }
 
-
         // Hash the files and de-duplicate them in the tar using links
         if deduplicate {
             let file_hash = cotar::fnv1a_64(&tile.data);
@@ -227,12 +233,14 @@ pub fn to_tar(
     tb.finish().expect("Failed to write tar");
 
     println!(
-        "Mbtiles converted entries:{} unique_files:{}",
+        "✔️ Tar created: {} from mbtiles entries:{} unique_files:{}\n",
+        output_file,
         count,
         tht.len(),
     );
 
-    file_index_create(output_file, false, 50);
+    file_index_create(output_file, true, 50);
 
+    println!("✔️ Tar index created: {}.index", output_file);
     Ok(())
 }
