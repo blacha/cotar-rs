@@ -87,7 +87,7 @@ enum Commands {
 
         /// Create a tar index after the tar is create
         #[clap(long, action)]
-        create_index: Option<bool>
+        create_index: Option<bool>,
     },
 }
 
@@ -109,7 +109,10 @@ fn file_index_create(file_name: &str, force: bool, max_search: usize) {
         process::exit(1);
     }
 
-    println!("Creating tar index from:{} max_search:{}", file_name, max_search);
+    println!(
+        "Creating tar index from:{} max_search:{}",
+        file_name, max_search
+    );
     let mut cotar_index = CotarIndex::from_tar(file_name, 100_000).unwrap();
     println!("Tar read done.. files: {}", cotar_index.entries.len());
 
@@ -173,14 +176,14 @@ fn main() {
             output_file,
             deduplicate,
             drop_duplicates,
-            create_index
+            create_index,
         } => {
             crate::mbtiles::to_tar(
                 mbtiles_file_name,
                 output_file,
                 deduplicate.unwrap_or(true),
                 drop_duplicates.unwrap_or(false),
-                create_index.unwrap_or(false)
+                create_index.unwrap_or(false),
             )
             .unwrap();
         }
