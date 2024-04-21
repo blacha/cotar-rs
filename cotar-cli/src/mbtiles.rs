@@ -71,6 +71,7 @@ pub fn to_tar(
     output_file: &str,
     deduplicate: bool,
     drop_duplicates: bool,
+    create_index: bool,
 ) -> IoResult<()> {
     if !file_name.ends_with(".mbtiles") {
         return Err(Error::new(
@@ -233,14 +234,16 @@ pub fn to_tar(
     tb.finish().expect("Failed to write tar");
 
     println!(
-        "✔️ Tar created: {} from mbtiles entries:{} unique_files:{}\n",
+        "\n✔️ Tar created: {} from mbtiles entries:{} unique_files:{}\n",
         output_file,
         count,
         tht.len(),
     );
 
-    file_index_create(output_file, true, 50);
+    if create_index {
+        file_index_create(output_file, true, 50);
+        println!("✔️ Tar index created: {}.index", output_file);
+    }
 
-    println!("✔️ Tar index created: {}.index", output_file);
     Ok(())
 }

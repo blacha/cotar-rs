@@ -26,7 +26,7 @@ enum Commands {
         /// Overwrite any existing files
         ///
         /// Default: false
-        #[clap(long = "force", short = 'f')]
+        #[clap(long, short = 'f')]
         force: Option<bool>,
 
         /// Worst case number of records that need to be searched to find a specific file
@@ -35,7 +35,7 @@ enum Commands {
         /// - 5 slots: "-m 5"
         ///
         /// Default: 100
-        #[clap(short = 'm')]
+        #[clap(short = 'm', long)]
         max_search: Option<usize>,
     },
 
@@ -47,7 +47,7 @@ enum Commands {
         /// Overwrite any existing files
         ///
         /// Default: false
-        #[clap(long = "force", short = 'f')]
+        #[clap(long, short = 'f')]
         force: Option<bool>,
 
         /// Worst case number of records that need to be searched to find a specific file
@@ -56,7 +56,7 @@ enum Commands {
         /// - 5 slots: "-m 5"
         ///
         /// Default: 100
-        #[clap(short = 'm')]
+        #[clap(short = 'm', long)]
         max_search: Option<usize>,
     },
 
@@ -78,12 +78,16 @@ enum Commands {
         output_file: String,
 
         /// Hash file contents and deduplicate files with the same hash
-        #[clap(short = 'e')]
+        #[clap(short = 'e', long)]
         deduplicate: Option<bool>,
 
         /// Drop duplicate files from the archive
-        #[clap(short = 'd')]
+        #[clap(short = 'd', long)]
         drop_duplicates: Option<bool>,
+
+        /// Create a tar index after the tar is create
+        #[clap(long, action)]
+        create_index: Option<bool>
     },
 }
 
@@ -169,12 +173,14 @@ fn main() {
             output_file,
             deduplicate,
             drop_duplicates,
+            create_index
         } => {
             crate::mbtiles::to_tar(
                 mbtiles_file_name,
                 output_file,
                 deduplicate.unwrap_or(true),
                 drop_duplicates.unwrap_or(false),
+                create_index.unwrap_or(false)
             )
             .unwrap();
         }
