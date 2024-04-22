@@ -2,6 +2,15 @@
 
 
 
+## [0.4.0](https://github.com/blacha/cotar-rs/compare/cotar-cli-v0.3.2...cotar-cli-v0.4.0) (2024-04-21)
+
+
+### Features
+
+* create .index when importing from mbtiles ([399cede](https://github.com/blacha/cotar-rs/commit/399cede048055d8190f13ab1ea77c60f4d601930))
+* give cli option to --create-index from mbtiles ([9db9c3a](https://github.com/blacha/cotar-rs/commit/9db9c3af9d74c382b3a6debaa32e00109618ab98))
+* make mbtiles a default feature ([050974d](https://github.com/blacha/cotar-rs/commit/050974db2210959692eab3172f4f2440248bfd78))
+
 ## [0.3.1](https://github.com/blacha/cotar-rs/compare/cotar-cli-v0.3.0...cotar-cli-v0.3.1) (2023-08-06)
 
 
