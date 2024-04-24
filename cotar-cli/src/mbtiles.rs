@@ -46,7 +46,7 @@ impl TileHashTree {
     }
 
     pub fn insert(&mut self, file_size: usize, hash: u64, path: &str) -> Option<String> {
-        let hm = self.data.entry(file_size).or_insert_with(HashMap::new);
+        let hm = self.data.entry(file_size.div_ceil(1024)).or_insert_with(HashMap::new);
         let entry = hm.entry(hash);
         match entry {
             Entry::Vacant(e) => {
